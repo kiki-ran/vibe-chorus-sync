@@ -1,1 +1,4 @@
 project_id = "hzeqemhwhxcbjoyicxhv"
+
+[functions.ml-recommendations]
+verify_jwt = false

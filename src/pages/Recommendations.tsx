@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
-import { Music2, TrendingUp, Users } from "lucide-react";
+import { Music2, TrendingUp, Users, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Song {
   id: string;
@@ -16,10 +17,18 @@ interface Song {
   social_ranking: number;
 }
 
+interface MLResponse {
+  recommendations: Song[];
+  method: string;
+  ml_model: string;
+  total_analyzed?: number;
+}
+
 export default function Recommendations() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  const [mlInfo, setMlInfo] = useState<{ method: string; model: string; analyzed: number } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,24 +58,30 @@ export default function Recommendations() {
 
       setProfile(profileData);
 
-      // Get songs matching the user's community
-      const { data: songsData, error } = await supabase
-        .from("songs")
-        .select("*")
-        .eq("community_country", profileData.country)
-        .eq("community_region", profileData.region)
-        .eq("community_age_group", profileData.age_group)
-        .order("social_ranking", { ascending: true })
-        .limit(10);
+      // Call ML recommendation edge function
+      const { data: mlData, error: mlError } = await supabase.functions.invoke('ml-recommendations', {
+        body: {
+          country: profileData.country,
+          region: profileData.region,
+          age_group: profileData.age_group
+        }
+      });
 
-      if (error) {
+      if (mlError) {
+        console.error('ML Error:', mlError);
         toast({
           title: "Error",
-          description: "Failed to load recommendations",
+          description: "Failed to load ML recommendations",
           variant: "destructive",
         });
       } else {
-        setSongs(songsData || []);
+        const mlResponse = mlData as MLResponse;
+        setSongs(mlResponse.recommendations || []);
+        setMlInfo({
+          method: mlResponse.method,
+          model: mlResponse.ml_model,
+          analyzed: mlResponse.total_analyzed || 0
+        });
       }
 
       setLoading(false);
@@ -81,24 +96,55 @@ export default function Recommendations() {
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto animate-fade-in">
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-              Your Community's Top Picks
-            </h1>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Sparkles className="h-8 w-8 text-primary animate-pulse" />
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+                AI-Powered Recommendations
+              </h1>
+            </div>
             {profile && (
-              <p className="text-muted-foreground text-lg">
-                Trending in {profile.region}, {profile.country} • Age {profile.age_group}
-              </p>
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-lg">
+                  Personalized for {profile.region}, {profile.country} • Age {profile.age_group}
+                </p>
+                {mlInfo && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Badge variant="secondary" className="gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      {mlInfo.model}
+                    </Badge>
+                    {mlInfo.analyzed > 0 && (
+                      <span>• Analyzed {mlInfo.analyzed} songs from your community</span>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
           {loading ? (
-            <div className="text-center text-muted-foreground">Loading recommendations...</div>
+            <div className="grid gap-4">
+              {[...Array(5)].map((_, i) => (
+                <Card key={i} className="border-border/50 bg-card/50">
+                  <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                    <Skeleton className="w-12 h-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
           ) : songs.length === 0 ? (
             <Card className="border-border/50 bg-card/50">
               <CardContent className="py-12 text-center">
                 <Music2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  No songs found for your community yet. Check back soon!
+                <p className="text-muted-foreground text-lg font-medium mb-2">
+                  No songs found for your community yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Our ML model is analyzing music preferences in your region. Check back soon!
                 </p>
               </CardContent>
             </Card>

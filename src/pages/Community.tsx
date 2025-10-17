@@ -17,6 +17,26 @@ export default function Community() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const countries = [
+    "India",
+    "USA", 
+    "UK",
+    "Japan",
+    "South Korea",
+    "France"
+  ];
+  
+  const regionsByCountry: Record<string, string[]> = {
+    "India": ["Delhi", "Mumbai", "Bengaluru", "Chennai", "Hyderabad", "Pune", "Calicut"],
+    "USA": ["New York", "Los Angeles", "Chicago", "Houston", "Miami", "Austin", "Portland", "Las Vegas", "Toronto"],
+    "UK": ["London", "Manchester", "Glasgow"],
+    "Japan": ["Tokyo", "Osaka"],
+    "South Korea": ["Seoul"],
+    "France": ["Paris"]
+  };
+  
+  const ageGroups = ["13-18", "19-25", "26-40", "40+"];
+
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -96,34 +116,28 @@ export default function Community() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="country">Country</Label>
-                <Select value={country} onValueChange={setCountry} required>
+                <Select value={country} onValueChange={(value) => { setCountry(value); setRegion(""); }} required>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Select your country" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border z-50">
-                    <SelectItem value="USA">United States</SelectItem>
-                    <SelectItem value="UK">United Kingdom</SelectItem>
-                    <SelectItem value="Canada">Canada</SelectItem>
-                    <SelectItem value="Australia">Australia</SelectItem>
-                    <SelectItem value="Germany">Germany</SelectItem>
-                    <SelectItem value="France">France</SelectItem>
+                    {countries.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="region">Region</Label>
-                <Select value={region} onValueChange={setRegion} required>
+                <Label htmlFor="region">Region / City</Label>
+                <Select value={region} onValueChange={setRegion} required disabled={!country}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Select your region" />
+                    <SelectValue placeholder={country ? "Select your region/city" : "Select country first"} />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border z-50">
-                    <SelectItem value="West Coast">West Coast</SelectItem>
-                    <SelectItem value="East Coast">East Coast</SelectItem>
-                    <SelectItem value="Midwest">Midwest</SelectItem>
-                    <SelectItem value="South">South</SelectItem>
-                    <SelectItem value="London">London</SelectItem>
-                    <SelectItem value="Toronto">Toronto</SelectItem>
+                    {country && regionsByCountry[country]?.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -135,10 +149,9 @@ export default function Community() {
                     <SelectValue placeholder="Select your age group" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border z-50">
-                    <SelectItem value="18-25">18-25</SelectItem>
-                    <SelectItem value="26-35">26-35</SelectItem>
-                    <SelectItem value="35-50">35-50</SelectItem>
-                    <SelectItem value="50+">50+</SelectItem>
+                    {ageGroups.map((ag) => (
+                      <SelectItem key={ag} value={ag}>{ag}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
