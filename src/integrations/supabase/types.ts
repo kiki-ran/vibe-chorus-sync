@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      cluster_assignments: {
+        Row: {
+          cluster_id: number
+          cluster_label: string | null
+          coordinates_2d: Json | null
+          created_at: string | null
+          features_used: Json | null
+          id: string
+          item_id: string
+          item_type: string
+          model_version: string | null
+        }
+        Insert: {
+          cluster_id: number
+          cluster_label?: string | null
+          coordinates_2d?: Json | null
+          created_at?: string | null
+          features_used?: Json | null
+          id?: string
+          item_id: string
+          item_type: string
+          model_version?: string | null
+        }
+        Update: {
+          cluster_id?: number
+          cluster_label?: string | null
+          coordinates_2d?: Json | null
+          created_at?: string | null
+          features_used?: Json | null
+          id?: string
+          item_id?: string
+          item_type?: string
+          model_version?: string | null
+        }
+        Relationships: []
+      }
+      ml_models: {
+        Row: {
+          created_at: string | null
+          hyperparameters: Json | null
+          id: string
+          metrics: Json | null
+          model_name: string
+          model_type: string
+          status: string | null
+          training_date: string | null
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          created_at?: string | null
+          hyperparameters?: Json | null
+          id?: string
+          metrics?: Json | null
+          model_name: string
+          model_type: string
+          status?: string | null
+          training_date?: string | null
+          updated_at?: string | null
+          version: string
+        }
+        Update: {
+          created_at?: string | null
+          hyperparameters?: Json | null
+          id?: string
+          metrics?: Json | null
+          model_name?: string
+          model_type?: string
+          status?: string | null
+          training_date?: string | null
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           age_group: string | null
@@ -51,11 +126,20 @@ export type Database = {
           community_country: string | null
           community_region: string | null
           created_at: string | null
+          danceability: number | null
+          energy: number | null
           genre: string
           id: string
+          likes: number | null
+          plays: number | null
           popularity: number | null
+          release_date: string | null
+          shares: number | null
           social_ranking: number | null
+          tempo: number | null
           title: string
+          track_id: string | null
+          valence: number | null
         }
         Insert: {
           artist: string
@@ -63,11 +147,20 @@ export type Database = {
           community_country?: string | null
           community_region?: string | null
           created_at?: string | null
+          danceability?: number | null
+          energy?: number | null
           genre: string
           id?: string
+          likes?: number | null
+          plays?: number | null
           popularity?: number | null
+          release_date?: string | null
+          shares?: number | null
           social_ranking?: number | null
+          tempo?: number | null
           title: string
+          track_id?: string | null
+          valence?: number | null
         }
         Update: {
           artist?: string
@@ -75,11 +168,105 @@ export type Database = {
           community_country?: string | null
           community_region?: string | null
           created_at?: string | null
+          danceability?: number | null
+          energy?: number | null
           genre?: string
           id?: string
+          likes?: number | null
+          plays?: number | null
           popularity?: number | null
+          release_date?: string | null
+          shares?: number | null
           social_ranking?: number | null
+          tempo?: number | null
           title?: string
+          track_id?: string | null
+          valence?: number | null
+        }
+        Relationships: []
+      }
+      user_favorites: {
+        Row: {
+          created_at: string | null
+          id: string
+          song_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          song_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          song_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_favorites_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_listening_history: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          played_at: string | null
+          song_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          played_at?: string | null
+          song_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          played_at?: string | null
+          song_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_listening_history_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -88,10 +275,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -218,6 +411,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
