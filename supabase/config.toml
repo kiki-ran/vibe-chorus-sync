@@ -2,3 +2,12 @@ project_id = "hzeqemhwhxcbjoyicxhv"
 
 [functions.ml-recommendations]
 verify_jwt = false
+
+[functions.analytics-dashboard]
+verify_jwt = false
+
+[functions.ml-models-info]
+verify_jwt = false
+
+[functions.listening-personality]
+verify_jwt = false

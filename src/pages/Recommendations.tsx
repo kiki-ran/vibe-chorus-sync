@@ -15,6 +15,9 @@ interface Song {
   genre: string;
   popularity: number;
   social_ranking: number;
+  why?: string;
+  confidence?: string;
+  rank?: number;
 }
 
 interface MLResponse {
@@ -159,26 +162,38 @@ export default function Recommendations() {
                     <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-xl">
                       #{index + 1}
                     </div>
-                    <div className="flex-1">
+                     <div className="flex-1">
                       <CardTitle className="flex items-center gap-2">
                         {song.title}
-                        {song.social_ranking <= 3 && (
+                        {song.rank && song.rank <= 3 && (
                           <TrendingUp className="h-5 w-5 text-primary" />
                         )}
                       </CardTitle>
-                      <CardDescription>{song.artist}</CardDescription>
+                      <CardDescription className="flex items-center justify-between gap-2">
+                        <span>{song.artist}</span>
+                        {song.confidence && (
+                          <Badge variant="secondary" className="gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            {Math.round(parseFloat(song.confidence) * 100)}% match
+                          </Badge>
+                        )}
+                      </CardDescription>
                     </div>
                     <div className="flex gap-2">
-                      <Badge variant="secondary" className="gap-1">
-                        <Users className="h-3 w-3" />
-                        Rank {song.social_ranking}
-                      </Badge>
                       <Badge variant="outline" className="gap-1">
                         {song.genre}
                       </Badge>
+                      {song.rank && (
+                        <Badge variant="secondary">#{song.rank}</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
+                    {song.why && (
+                      <div className="mb-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                        <p className="text-sm text-muted-foreground italic">{song.why}</p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4">
                       <div className="flex-1">
                         <div className="text-sm text-muted-foreground mb-1">Popularity</div>

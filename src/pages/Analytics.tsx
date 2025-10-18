@@ -3,9 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { TrendingUp, Music, Award, Users } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { TrendingUp, Music, Award, Users, Cpu, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ListeningPersonality } from "@/components/analytics/ListeningPersonality";
+import { ClusterVisualization } from "@/components/analytics/ClusterVisualization";
+import { EngagementMap } from "@/components/analytics/EngagementMap";
 
 export default function Analytics() {
   const [genreData, setGenreData] = useState<any[]>([]);
@@ -14,9 +19,18 @@ export default function Analytics() {
   const [trendingSongs, setTrendingSongs] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [engagementData, setEngagementData] = useState<any[]>([]);
+  const [clusters, setClusters] = useState<any[]>([]);
+  const [mlModels, setMlModels] = useState<any[]>([]);
+  const [filterCountry, setFilterCountry] = useState<string>("");
+  const [filterCity, setFilterCity] = useState<string>("");
+  const [filterAgeGroup, setFilterAgeGroup] = useState<string>("");
   const navigate = useNavigate();
 
-  const COLORS = ['hsl(258 90% 66%)', 'hsl(280 90% 60%)', 'hsl(260 80% 55%)', 'hsl(270 85% 65%)', 'hsl(250 75% 60%)'];
+  const COLORS = ['hsl(258 90% 66%)', 'hsl(280 90% 60%)', 'hsl(260 80% 55%)', 'hsl(270 85% 65%)', 'hsl(250 75% 60%)', 'hsl(240 70% 50%)'];
+
+  const countries = ['India', 'USA', 'UK', 'Japan', 'South Korea', 'France'];
+  const ageGroups = ['13-17', '18-24', '25-34', '35-44', '45+'];
 
   useEffect(() => {
     const loadAnalytics = async () => {
@@ -35,10 +49,22 @@ export default function Analytics() {
 
       setProfile(profileData);
 
-      // Get all songs for global analytics
-      const { data: songs } = await supabase
-        .from("songs")
-        .select("*");
+      // Initialize filters with user profile
+      if (profileData) {
+        setFilterCountry(profileData.country || "");
+        setFilterCity(profileData.region || "");
+        setFilterAgeGroup(profileData.age_group || "");
+      }
+
+      await loadData(profileData);
+    };
+
+    loadAnalytics();
+  }, [navigate]);
+
+  const loadData = async (profileData: any) => {
+    // Get all songs
+    const { data: songs } = await supabase.from("songs").select("*");
 
       if (songs) {
         // Global genre distribution - show only top 6, group rest as "Other"
@@ -47,25 +73,18 @@ export default function Analytics() {
           genreMap.set(song.genre, (genreMap.get(song.genre) || 0) + 1);
         });
         
-        const sortedGenres = Array.from(genreMap.entries())
-          .sort((a, b) => b[1] - a[1]);
-        
+        const sortedGenres = Array.from(genreMap.entries()).sort((a, b) => b[1] - a[1]);
         const top6Genres = sortedGenres.slice(0, 6);
         const otherGenres = sortedGenres.slice(6);
         const otherCount = otherGenres.reduce((sum, [_, count]) => sum + count, 0);
         
-        const genreChartData = top6Genres.map(([name, value]) => ({
-          name,
-          value,
-        }));
-        
+        const genreChartData = top6Genres.map(([name, value]) => ({ name, value }));
         if (otherCount > 0) {
           genreChartData.push({ name: 'Other', value: otherCount });
         }
-        
         setGenreData(genreChartData);
 
-        // Top artists by popularity - community specific if profile exists
+        // Top artists by popularity - filtered by community if profile exists
         let relevantSongs = songs;
         if (profileData?.country && profileData?.region && profileData?.age_group) {
           relevantSongs = songs.filter(s => 
@@ -90,7 +109,6 @@ export default function Analytics() {
 
         // Personalized analytics if profile exists
         if (profileData?.country && profileData?.region && profileData?.age_group) {
-          // Top genres in user's community
           const communitySongs = songs.filter(s => 
             s.community_country === profileData.country &&
             s.community_region === profileData.region &&
@@ -110,43 +128,131 @@ export default function Analytics() {
 
           setCommunityGenres(topCommunityGenres);
 
-          // Trending songs in user's city
           const citySongs = songs
             .filter(s => 
               s.community_country === profileData.country &&
               s.community_region === profileData.region
             )
             .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
-            .slice(0, 5);
+            .slice(0, 10);
 
           setTrendingSongs(citySongs);
         }
       }
 
+      // Load dashboard data (engagement map and clusters)
+      try {
+        const { data: dashboardData } = await supabase.functions.invoke('analytics-dashboard', {
+          body: { 
+            country: filterCountry,
+            city: filterCity,
+            age_group: filterAgeGroup
+          }
+        });
+
+        if (dashboardData) {
+          setEngagementData(dashboardData.engagementMap || []);
+          setClusters(dashboardData.clusters || []);
+        }
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+
+      // Load ML models info
+      try {
+        const { data: modelsData } = await supabase.functions.invoke('ml-models-info');
+        if (modelsData) {
+          setMlModels(modelsData.models || []);
+        }
+      } catch (error) {
+        console.error('Error loading ML models:', error);
+      }
+
       setLoading(false);
     };
 
-    loadAnalytics();
-  }, [navigate]);
+  const handleRegionClick = (city: string, country: string) => {
+    setFilterCity(city);
+    setFilterCountry(country);
+    loadData(profile);
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-7xl mx-auto animate-fade-in">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-              Community Analytics
+              Advanced Analytics Dashboard
             </h1>
             <p className="text-muted-foreground text-lg">
-              {profile ? `Personalized insights for ${profile.region}, ${profile.country}` : 'Discover what\'s trending across communities'}
+              {profile ? `Personalized insights for ${profile.region}, ${profile.country}` : 'Discover trends across communities'}
             </p>
           </div>
+
+          {/* Filters */}
+          <Card className="mb-8 border-border/50 bg-card/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-primary" />
+                <CardTitle>Filters</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Select value={filterCountry} onValueChange={setFilterCountry}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countries.map(country => (
+                      <SelectItem key={country} value={country}>{country}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterAgeGroup} onValueChange={setFilterAgeGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select age group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ageGroups.map(age => (
+                      <SelectItem key={age} value={age}>{age}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => loadData(profile)}>Apply Filters</Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {loading ? (
             <div className="text-center text-muted-foreground">Loading analytics...</div>
           ) : (
             <>
+              {/* Listening Personality */}
+              {profile?.country && profile?.region && profile?.age_group && (
+                <div className="mb-8">
+                  <ListeningPersonality 
+                    country={profile.country}
+                    region={profile.region}
+                    ageGroup={profile.age_group}
+                  />
+                </div>
+              )}
+
+              {/* Community Engagement Map */}
+              <div className="mb-8">
+                <EngagementMap 
+                  engagementData={engagementData}
+                  onRegionClick={handleRegionClick}
+                />
+              </div>
+
+              {/* Cluster Visualization */}
+              <div className="mb-8">
+                <ClusterVisualization clusters={clusters} />
+              </div>
               {/* Personalized Analytics */}
               {profile?.country && communityGenres.length > 0 && (
                 <div className="mb-8 space-y-8">
@@ -193,17 +299,17 @@ export default function Analytics() {
                       </CardContent>
                     </Card>
 
-                    {/* Trending Songs in City */}
+                    {/* Top 10 Songs in City */}
                     <Card className="border-border/50 bg-card/50">
                       <CardHeader>
                         <div className="flex items-center gap-2">
                           <TrendingUp className="h-5 w-5 text-primary" />
-                          <CardTitle>Trending in {profile.region}</CardTitle>
+                          <CardTitle>Top 10 in {profile.region}</CardTitle>
                         </div>
-                        <CardDescription>Top songs in your city right now</CardDescription>
+                        <CardDescription>Most popular songs in your city</CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="space-y-4">
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto">
                           {trendingSongs.map((song, index) => (
                             <div key={song.id} className="flex items-center gap-3">
                               <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
@@ -302,36 +408,35 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-                {/* Trending Stats */}
+                {/* ML Models Info */}
                 <Card className="border-border/50 bg-card/50 md:col-span-2">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                    <CardTitle>Community Insights</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="text-center p-6 rounded-lg bg-primary/10">
-                      <div className="text-3xl font-bold text-primary mb-2">
-                        {genreData.length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Active Genres</div>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-5 w-5 text-primary" />
+                      <CardTitle>ML Models</CardTitle>
                     </div>
-                    <div className="text-center p-6 rounded-lg bg-primary/10">
-                      <div className="text-3xl font-bold text-primary mb-2">
-                        {topArtists.length}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Featured Artists</div>
+                    <CardDescription>Active recommendation and clustering models</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      {mlModels.map((model) => (
+                        <div key={model.id} className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                          <h4 className="font-semibold mb-2">{model.model_name}</h4>
+                          <p className="text-xs text-muted-foreground mb-3">{model.model_type}</p>
+                          {model.metrics && (
+                            <div className="space-y-1 text-sm">
+                              {Object.entries(model.metrics).slice(0, 2).map(([key, value]) => (
+                                <div key={key} className="flex justify-between">
+                                  <span className="text-muted-foreground text-xs">{key}:</span>
+                                  <Badge variant="outline" className="text-xs">{value as string}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <div className="text-center p-6 rounded-lg bg-primary/10">
-                      <div className="text-3xl font-bold text-primary mb-2">
-                        {genreData.reduce((acc, curr) => acc + curr.value, 0)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Total Tracks</div>
-                    </div>
-                  </div>
-                </CardContent>
+                  </CardContent>
                 </Card>
               </div>
             </>
