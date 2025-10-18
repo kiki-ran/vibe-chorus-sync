@@ -41,21 +41,42 @@ export default function Analytics() {
         .select("*");
 
       if (songs) {
-        // Global genre distribution
+        // Global genre distribution - show only top 6, group rest as "Other"
         const genreMap = new Map<string, number>();
         songs.forEach(song => {
           genreMap.set(song.genre, (genreMap.get(song.genre) || 0) + 1);
         });
         
-        const genreChartData = Array.from(genreMap.entries()).map(([name, value]) => ({
+        const sortedGenres = Array.from(genreMap.entries())
+          .sort((a, b) => b[1] - a[1]);
+        
+        const top6Genres = sortedGenres.slice(0, 6);
+        const otherGenres = sortedGenres.slice(6);
+        const otherCount = otherGenres.reduce((sum, [_, count]) => sum + count, 0);
+        
+        const genreChartData = top6Genres.map(([name, value]) => ({
           name,
           value,
         }));
+        
+        if (otherCount > 0) {
+          genreChartData.push({ name: 'Other', value: otherCount });
+        }
+        
         setGenreData(genreChartData);
 
-        // Top artists by popularity
+        // Top artists by popularity - community specific if profile exists
+        let relevantSongs = songs;
+        if (profileData?.country && profileData?.region && profileData?.age_group) {
+          relevantSongs = songs.filter(s => 
+            s.community_country === profileData.country &&
+            s.community_region === profileData.region &&
+            s.community_age_group === profileData.age_group
+          );
+        }
+
         const artistMap = new Map<string, number>();
-        songs.forEach(song => {
+        relevantSongs.forEach(song => {
           const current = artistMap.get(song.artist) || 0;
           artistMap.set(song.artist, current + song.popularity);
         });
